@@ -1,0 +1,171 @@
+//components used are 5 half adders, 7 full adders, 3 not gates, 3 4*1 multiplixers
+//structural description for half adder
+module half_adder(output sum, output carry, input x, input y);
+//input for xor gate are x and y... while the ouput is sum
+    xor(sum, x, y);
+//input for and gate are x and y... while the output is carry
+    and(carry, x, y);
+endmodule
+
+//structural description for full adder
+module full_adder(output sum, output carry, input x, input y, input z);
+//wire variables to store the output of the intermediate xor and and gates
+    wire sum1,carry1,carry2;
+    xor(sum1, x, y);
+    and(carry1, x, y);
+    xor(sum, sum1, z);
+    and(carry2, sum1, z);
+    or(carry, carry1, carry2);
+endmodule
+
+
+//structural description for 4*1 multiplexer
+module multiplexer(output result, input i0, input i1, input i2, input i3, input s0, input s1);
+//wire variables to store the output of the intermediate not and and gates
+   wire s0bar, s1bar, w, x, y, z;
+   not(s0bar, s0);
+   not(s1bar, s1);
+//4x1 multiplexer as shown in the resource
+   and(w, i0, s0bar, s1bar);
+   and(x, i1, s0, s1bar);
+   and(y, i2, s0bar, s1);
+   and(z, i3, s0, s1);
+   or(result, w, x, y, z);
+endmodule
+
+
+//structural description for the circuit
+//output is G (3bit 2s complement signed) and input is A and B (3bit 2s complement signed) selectors are s0 and s1
+module circuit(output g0, output g1, output g2, input a0, input a1, input a2, input b0, input b1, input b2, input s0, input s1);
+//first operation G = a-1 selectors = 00
+   wire op00s0, op00c0, op00s1, op00c1, op00s2, op00c2;
+   half_adder h1(op00s0, op00c0, a0, 1);
+   full_adder f1(op00s1, op00c1, a1, op00c0, 1);
+   full_adder f2(op00s2, op00c2, a2, op00c1, 1);
+//second operation G = a+b selectors = 01
+   wire op01s0, op01c0, op01s1, op01c1, op01s2, op01c2;
+   half_adder h2(op01s0, op01c0, a0, b0);
+   full_adder f3(op01s1, op01c1, a1, op01c0, b1);
+   full_adder f4(op01s2, op01c2, a2, op01c1, b2);
+//third operation G = a-b selectors = 10
+   wire b0bar, b1bar, b2bar;
+   not(b0bar, b0);
+   not(b1bar, b1);
+   not(b2bar, b2);
+   wire op10s0, op10c0, op10s1, op10c1, op10s2, op10c2;
+   full_adder f5(op10s0, op10c0, a0, b0bar, 1);
+   full_adder f6(op10s1, op10c1, a1, b1bar, op10c0);
+   full_adder f7(op10s2, op10c2, a2, b2bar, op10c1);
+//fourth operation G = -b selectors = 11
+   wire op11s0, op11c0, op11s1, op11c1, op11s2, op11c2;
+   half_adder h3(op11s0, op11c0, b0bar, 1);
+   half_adder h4(op11s1, op11c1, b1bar, op11c0);
+   half_adder h5(op11s2, op11c2, b2bar, op11c1);
+//multiplexers to select the wanted operation from 4 different operations through the selectors
+   multiplexer m1(g0, op00s0, op01s0, op10s0, op11s0, s0, s1);
+   multiplexer m2(g1, op00s1, op01s1, op10s1, op11s1, s0, s1);
+   multiplexer m3(g2, op00s2, op01s2, op10s2, op11s2, s0, s1);
+endmodule
+
+
+//behavioral descriptions for test bench
+module circuit_test();
+//input variables for test bench
+   reg a0, a1, a2, b0, b1, b2, s0, s1;
+//output variables for test bench
+   wire g0, g1, g2;
+//calling the circuit's structural
+   circuit c(g0, g1, g2, a0, a1, a2, b0, b1, b2, s0, s1);
+//starting test bench
+   initial
+   begin
+      $monitor($time, " a0=%b, a1=%b, a2=%b, b0=%b, b1=%b, b2=%b,      s0=%b, s1=%b,    g0=%b, g1=%b, g2=%b", a0, a1, a2, b0, b1, b2, s0, s1, g0, g1, g2);
+//testing for G = a-1 (00)
+      //A = 000, B = 000, S = 00, G = 111
+      a2=0; a1=0; a0=0; b2=0; b1=0; b0=0; s0=0; s1=0;
+      //A = 001, B = 000, S = 00, G = 000
+      #10 a2=0; a1=0; a0=1;
+      //A = 010, B = 000, S = 00, G = 001
+      #10 a2=0; a1=1; a0=0;
+      //A = 011, B = 000, S = 00, G = 010
+      #10 a2=0; a1=1; a0=1;
+      //A = 101, B = 000, S = 00, G = 100
+      #10 a2=1; a1=0; a0=1;
+      //A = 110, B = 000, S = 00, G = 101
+      #10 a2=1; a1=1; a0=0;
+      //A = 111, B = 000, S = 00, G = 110
+      #10 a2=1; a1=1; a0=1;
+//testing for G = a+b (01)
+      //A = 000, B = 000, S = 01, G = 000
+      #10 a2=0; a1=0; a0=0; b2=0; b1=0; b0=0; s0=1; s1=0;
+      //A = 000, B = 001, S = 01, G = 001
+      #10 a2=0; a1=0; a0=0; b2=0; b1=0; b0=1;
+      //A = 000, B = 010, S = 01, G = 010
+      #10 a2=0; a1=0; a0=0; b2=0; b1=1; b0=0;
+      //A = 000, B = 011, S = 01, G = 011
+      #10 a2=0; a1=0; a0=0; b2=0; b1=1; b0=1;
+      //A = 000, B = 000, S = 01, G = 100
+      #10 a2=0; a1=0; a0=0; b2=1; b1=0; b0=0;
+      //A = 000, B = 101, S = 01, G = 101
+      #10 a2=0; a1=0; a0=0; b2=1; b1=0; b0=1;
+      //A = 000, B = 110, S = 01, G = 110
+      #10 a2=0; a1=0; a0=0; b2=1; b1=1; b0=0;
+      //A = 000, B = 111, S = 01, G = 111
+      #10 a2=0; a1=0; a0=0; b2=1; b1=1; b0=1;
+      //A = 001, B = 000, S = 01, G = 001
+      #10 a2=0; a1=0; a0=1; b2=0; b1=0; b0=0;
+      //A = 010, B = 000, S = 01, G = 010
+      #10 a2=0; a1=1; a0=0; b2=0; b1=0; b0=0;
+      //A = 011, B = 000, S = 01, G = 011
+      #10 a2=0; a1=1; a0=1; b2=0; b1=0; b0=0;
+      //A = 001, B = 001, S = 01, G = 010
+      #10 a2=0; a1=0; a0=1; b2=0; b1=0; b0=1;
+      //A = 001, B = 010, S = 01, G = 011
+      #10 a2=0; a1=0; a0=1; b2=0; b1=1; b0=0;
+//testing for G = a-b (10)
+      //A = 000, B = 000, S = 10, G = 000
+      #10 a2=0; a1=0; a0=0; b2=0; b1=0; b0=0; s0=0; s1=1;
+      //A = 000, B = 110, S = 10, G = 010
+      #10 a2=0; a1=0; a0=0; b2=1; b1=1; b0=0;
+      //A = 000, B = 111, S = 10, G = 001
+      #10 a2=0; a1=0; a0=0; b2=1; b1=1; b0=1;
+      //A = 000, B = 101, S = 10, G = 011
+      #10 a2=0; a1=0; a0=0; b2=1; b1=0; b0=1;
+      //A = 001, B = 111, S = 10, G = 010
+      #10 a2=0; a1=0; a0=1; b2=1; b1=1; b0=1;
+      //A = 001, B = 001, S = 10, G = 000
+      #10 a2=0; a1=0; a0=1; b2=0; b1=0; b0=1;
+      //A = 010, B = 001, S = 10, G = 001
+      #10 a2=0; a1=1; a0=0; b2=0; b1=0; b0=1;
+      //A = 010, B = 010, S = 10, G = 000
+      #10 a2=0; a1=1; a0=0; b2=0; b1=1; b0=0;
+      //A = 010, B = 111, S = 10, G = 011
+      #10 a2=0; a1=1; a0=0; b2=1; b1=1; b0=1;
+      //A = 010, B = 011, S = 10, G = 111
+      #10 a2=0; a1=1; a0=0; b2=0; b1=1; b0=1;
+      //A = 011, B = 001, S = 10, G = 010
+      #10 a2=0; a1=1; a0=1; b2=0; b1=0; b0=1;
+      //A = 011, B = 010, S = 10, G = 001
+      #10 a2=0; a1=1; a0=1; b2=0; b1=1; b0=0;
+      //A = 011, B = 011, S = 10, G = 000
+      #10 a2=0; a1=1; a0=1; b2=0; b1=1; b0=1;
+      //A = 000, B = 001, S = 10, G = 111
+      #10 a2=0; a1=0; a0=0; b2=0; b1=0; b0=1;
+//testing for G = -b (11)
+      //A = 000, B = 000, S = 11, G = 000
+      #10 a2=0; a1=0; a0=0; b2=0; b1=0; b0=0; s0=1; s1=1;
+      //A = 000, B = 001, S = 11, G = 111
+      #10 b2=0; b1=0; b0=1;
+      //A = 000, B = 010, S = 11, G = 110
+      #10 b2=0; b1=1; b0=0;
+      //A = 000, B = 011, S = 11, G = 101
+      #10 b2=0; b1=1; b0=1;
+      //A = 000, B = 101, S = 11, G = 011
+      #10 b2=1; b1=0; b0=1;
+      //A = 000, B = 110, S = 11, G = 010
+      #10 b2=1; b1=1; b0=0;
+      //A = 000, B = 111, S = 11, G = 001
+      #10 b2=1; b1=1; b0=1;
+      $finish;
+   end
+endmodule
